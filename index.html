@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>勤怠管理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Kaku Gothic ProN','メイリオ',sans-serif;background:#f0f2f0;color:#1a1a1a;min-height:100vh;font-size:14px}
+
+/* 農場選択画面 */
+#farm-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px;}
+.farm-logo{font-size:56px;margin-bottom:16px}
+.farm-title{font-size:20px;font-weight:700;color:#27500A;margin-bottom:6px}
+.farm-sub{font-size:12px;color:#888;margin-bottom:32px;font-family:monospace}
+.farm-card{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:24px;width:100%;max-width:360px;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.farm-card-title{font-size:12px;font-weight:700;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+.farm-input{width:100%;border:1.5px solid #ddd;border-radius:8px;padding:12px 14px;font-size:16px;font-family:inherit;background:#f9f9f9;color:#1a1a1a;outline:none;margin-bottom:12px;transition:border-color .15s}
+.farm-input:focus{border-color:#27500A;background:#fff;box-shadow:0 0 0 3px rgba(39,80,10,.1)}
+.farm-input::placeholder{color:#bbb}
+.farm-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#27500A;color:#fff;font-size:15px;font-family:inherit;font-weight:700;cursor:pointer}
+.farm-btn:active{opacity:.85}
+.farm-error{color:#b71c1c;font-size:12px;margin-top:-6px;margin-bottom:10px;display:none}
+.farm-history{margin-top:20px;width:100%;max-width:360px}
+.farm-history-title{font-size:11px;font-weight:700;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.farm-history-item{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.farm-history-item:active{background:#f0f7ea}
+.farm-history-name{font-size:14px;font-weight:700;color:#1a1a1a}
+
+/* メインアプリ */
+#app-screen{display:none}
+.app{max-width:960px;margin:0 auto;padding:12px}
+.hdr{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.hdr-logo{width:42px;height:42px;background:#27500A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.hdr-info{flex:1}
+.hdr-info h1{font-size:17px;font-weight:600}
+.hdr-info p{font-size:12px;color:#666;margin-top:2px}
+.hdr-switch{padding:7px 13px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;font-size:12px;cursor:pointer;font-family:inherit;color:#555}
+.hdr-switch:hover{background:#eee}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px;border:1px solid #d0d0d0;background:#fff;font-size:13px;cursor:pointer;color:#555;font-family:inherit;transition:all .12s}
+.tab.active{background:#27500A;color:#fff;border-color:#27500A;font-weight:600}
+.card{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:18px;margin-bottom:12px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:14px;color:#1a1a1a}
+.stamp-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.sbtn{padding:20px 8px;border-radius:10px;border:2px solid;cursor:pointer;text-align:center;font-family:inherit;transition:all .12s;font-size:13px;font-weight:600}
+.sbtn:hover{transform:scale(.97)}
+.sbtn-in{background:#e8f5e0;border-color:#4CAF50;color:#1b5e20}
+.sbtn-out{background:#fdecea;border-color:#ef5350;color:#b71c1c}
+.sbtn-brk{background:#fff8e1;border-color:#ffb300;color:#e65100}
+.sbtn-bck{background:#e3f2fd;border-color:#42a5f5;color:#0d47a1}
+.sbtn .s-icon{font-size:24px;display:block;margin-bottom:5px}
+.name-label{font-size:12px;color:#666;margin-bottom:5px}
+.name-wrap{display:flex;gap:6px;margin-bottom:8px}
+.name-wrap input{flex:1;padding:9px 11px;border:1px solid #ccc;border-radius:8px;font-size:14px;font-family:inherit;background:#f9f9f9}
+.name-wrap input:focus{outline:none;border-color:#27500A}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.chip{padding:5px 12px;border-radius:20px;border:1px solid #ccc;font-size:12px;cursor:pointer;background:#f5f5f5;transition:all .1s}
+.chip:hover,.chip.sel{background:#27500A;color:#fff;border-color:#27500A}
+.status-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.st-in{background:#e8f5e0;color:#1b5e20}
+.st-out{background:#fdecea;color:#b71c1c}
+.st-brk{background:#fff8e1;color:#e65100}
+.st-bck{background:#e3f2fd;color:#0d47a1}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;padding:8px 10px;border-bottom:2px solid #eee;color:#666;font-weight:600;background:#f9f9f9;white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid #f0f0f0;white-space:nowrap}
+.tbl tr:hover td{background:#f9f9f9}
+.tbl-wrap{overflow-x:auto}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+.stat{background:#f5f5f5;border-radius:8px;padding:12px;text-align:center}
+.stat-n{font-size:22px;font-weight:700;color:#27500A}
+.stat-l{font-size:11px;color:#666;margin-top:3px}
+.leave-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.leave-card{border:1px solid #e0e0e0;border-radius:10px;padding:14px}
+.leave-card h3{font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+.lrow{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px}
+.lnum{font-size:17px;font-weight:700;color:#27500A}
+.lnum.blue{color:#1565C0}
+.adj-row{display:flex;gap:5px;margin-top:6px}
+.adj-row input{width:60px;padding:5px 7px;border:1px solid #ccc;border-radius:6px;font-size:12px;background:#f9f9f9;font-family:inherit}
+.adj-row input:focus{outline:none;border-color:#27500A}
+.adj-btn{padding:5px 9px;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600}
+.adj-g{background:#e8f5e0;color:#1b5e20}
+.adj-r{background:#fdecea;color:#b71c1c}
+.frow{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.frow select,.frow input{padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px;background:#f9f9f9;font-family:inherit}
+.frow select:focus,.frow input:focus{outline:none;border-color:#27500A}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600;transition:all .12s}
+.btn-g{background:#27500A;color:#fff}
+.btn-g:hover{background:#1b3d07}
+.btn-s{background:#f5f5f5;color:#333;border:1px solid #ccc}
+.btn-s:hover{background:#eee}
+.toast{position:fixed;top:16px;right:16px;padding:11px 18px;border-radius:8px;font-size:13px;z-index:200;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.toast-ok{background:#27500A;color:#fff}
+.toast-err{background:#b71c1c;color:#fff}
+.empty{text-align:center;padding:28px;color:#888;font-size:13px}
+.add-staff-row{display:flex;gap:6px;margin-bottom:10px}
+.add-staff-row input{flex:1;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px;background:#f9f9f9;font-family:inherit}
+.add-staff-row input:focus{outline:none;border-color:#27500A}
+.saving-indicator{display:none;font-size:11px;color:#888;margin-left:8px}
+</style>
+</head>
+<body>
+
+<!-- 農場選択画面 -->
+<div id="farm-screen">
+  <div class="farm-logo">🐷</div>
+  <div class="farm-title">勤怠管理システム</div>
+  <div class="farm-sub">livestock attendance manager</div>
+  <div class="farm-card">
+    <div class="farm-card-title">牧場・農場名を入力</div>
+    <input class="farm-input" type="text" id="farm-input" placeholder="例: ○○牧場" maxlength="30">
+    <div class="farm-error" id="farm-error">牧場名を入力してください</div>
+    <button class="farm-btn" onclick="startApp()">開始する →</button>
+  </div>
+  <div class="farm-history" id="farm-history" style="display:none">
+    <div class="farm-history-title">最近使った牧場</div>
+    <div id="farm-history-list"></div>
+  </div>
+</div>
+
+<!-- メインアプリ -->
+<div id="app-screen">
+  <div class="app">
+    <div class="hdr">
+      <div class="hdr-logo">🐷</div>
+      <div class="hdr-info">
+        <h1 id="farm-name-display">—</h1>
+        <p id="clk">—</p>
+      </div>
+      <button class="hdr-switch" onclick="switchFarm()">牧場切替</button>
+    </div>
+    <div class="tabs" id="tabs-bar"></div>
+    <div id="main-content"></div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = 'https://crimson-credit-a3df.daxiqitai2.workers.dev';
+  let db = { records:[], staff:[], leave:{} };
+  let currentFarm = '';
+  let currentKvKey = '';
+  let saving = false;
+  let state = { tab:'stamp', selName:'', filterName:'', filterMonth:'' };
+
+  // ========== 農場履歴 ==========
+  function getFarmHistory(){ try{ return JSON.parse(localStorage.getItem('kintai_farm_history')||'[]'); }catch(e){ return []; } }
+  function saveFarmHistory(name){
+    let h=getFarmHistory().filter(x=>x!==name); h.unshift(name); h=h.slice(0,5);
+    try{ localStorage.setItem('kintai_farm_history', JSON.stringify(h)); }catch(e){}
+  }
+  function loadFarmHistory(){
+    const h=getFarmHistory();
+    const wrap=document.getElementById('farm-history');
+    if(h.length===0){ wrap.style.display='none'; return; }
+    wrap.style.display='block';
+    document.getElementById('farm-history-list').innerHTML=h.map(name=>`
+      <div class="farm-history-item" onclick="selectFarm('${esc(name)}')">
+        <span class="farm-history-name">🏠 ${esc(name)}</span>
+        <span style="color:#aaa;font-size:16px">→</span>
+      </div>`).join('');
+  }
+  function selectFarm(name){ document.getElementById('farm-input').value=name; startApp(); }
+
+  // ========== アプリ開始 ==========
+  function startApp(){
+    const name=document.getElementById('farm-input').value.trim();
+    const errEl=document.getElementById('farm-error');
+    if(!name){ errEl.style.display='block'; return; }
+    errEl.style.display='none';
+    currentFarm=name;
+    currentKvKey='kintai_'+name.replace(/\s+/g,'_');
+    document.getElementById('farm-name-display').textContent=name+' 勤怠管理';
+    document.getElementById('farm-screen').style.display='none';
+    document.getElementById('app-screen').style.display='block';
+    saveFarmHistory(name);
+    loadData();
+    startClock();
+  }
+
+  function switchFarm(){
+    if(!confirm('牧場を切り替えますか？'))return;
+    clearInterval(window._clk);
+    db={records:[],staff:[],leave:{}};
+    currentFarm=''; currentKvKey='';
+    state={tab:'stamp',selName:'',filterName:'',filterMonth:''};
+    document.getElementById('farm-input').value='';
+    document.getElementById('app-screen').style.display='none';
+    document.getElementById('farm-screen').style.display='flex';
+    loadFarmHistory();
+  }
+
+  // ========== KV ==========
+  async function loadData(){
+    try{
+      const res=await fetch(`${API_BASE}/api/get?key=${encodeURIComponent(currentKvKey)}`);
+      if(!res.ok) throw new Error('通信エラー');
+      const data=await res.json();
+      if(data.value){ const d=JSON.parse(data.value); db.records=d.records||[]; db.staff=d.staff||[]; db.leave=d.leave||{}; }
+      render();
+    }catch(e){ showToast('データ読み込み失敗: '+e.message,true); render(); }
+  }
+
+  async function saveData(){
+    if(saving)return;
+    saving=true;
+    try{
+      const res=await fetch(`${API_BASE}/api/set`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({key:currentKvKey, value:JSON.stringify(db)})
+      });
+      if(!res.ok)throw new Error('保存エラー');
+    }catch(e){ showToast('保存失敗: '+e.message,true); }
+    finally{ saving=false; }
+  }
+
+  // ========== ユーティリティ ==========
+  function now(){ return new Date(); }
+  function fmtDate(d){ return d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'}); }
+  function fmtTime(d){ return d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+  function todayStr(){ return fmtDate(new Date()); }
+  function ymStr(d){ const dt=d||new Date(); return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; }
+  function getMonths(){ const m=[]; for(let i=0;i<12;i++){ const d=new Date(now().getFullYear(),now().getMonth()-i,1); m.push(ymStr(d)); } return m; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function calcDaily(recs){
+    const s=recs.slice().sort((a,b)=>a.ts.localeCompare(b.ts));
+    let t=0,inT=null;
+    for(const r of s){
+      if(r.type==='出勤')inT=new Date(r.ts);
+      else if(r.type==='退勤'&&inT){t+=(new Date(r.ts)-inT)/3600000;inT=null;}
+    }
+    return Math.round(t*100)/100;
+  }
+  function monthlyH(name,ym){
+    const recs=db.records.filter(r=>r.name===name&&r.ts.startsWith(ym));
+    const byDay={};
+    recs.forEach(r=>{const d=r.ts.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
+    let t=0; Object.values(byDay).forEach(dr=>{t+=calcDaily(dr);}); return Math.round(t*100)/100;
+  }
+  function lastType(name){
+    const today=todayStr();
+    const recs=db.records.filter(r=>r.name===name&&fmtDate(new Date(r.ts))===today);
+    if(!recs.length)return null;
+    return recs.slice().sort((a,b)=>b.ts.localeCompare(a.ts))[0].type;
+  }
+
+  function showToast(msg,err=false){
+    document.querySelectorAll('.toast').forEach(e=>e.remove());
+    const el=document.createElement('div');
+    el.className=`toast ${err?'toast-err':'toast-ok'}`;
+    el.textContent=msg; document.body.appendChild(el);
+    setTimeout(()=>el.remove(),2500);
+  }
+
+  function startClock(){
+    clearInterval(window._clk);
+    window._clk=setInterval(()=>{
+      const el=document.getElementById('clk');
+      if(el){
+        const tr=db.records.filter(r=>fmtDate(new Date(r.ts))===todayStr());
+        el.textContent=`${fmtDate(now())} ${fmtTime(now())} | 本日出勤：${[...new Set(tr.map(r=>r.name))].length}名`;
+      }
+    },1000);
+  }
+
+  // ========== 打刻 ==========
+  async function doStamp(type){
+    const name=state.selName.trim();
+    if(!name){ showToast('名前を入力または選択してください',true); return; }
+    const ts=new Date().toISOString().slice(0,19).replace('T',' ');
+    db.records.unshift({id:Date.now(),name,type,ts});
+    if(!db.staff.includes(name))db.staff.push(name);
+    showToast(`${name}さんの${type}を記録しました`);
+    render();
+    await saveData();
+  }
+
+  async function delRecord(id){
+    if(!confirm('この記録を削除しますか？'))return;
+    db.records=db.records.filter(r=>r.id!==id);
+    render(); await saveData();
+  }
+
+  async function addStaff(){
+    const inp=document.getElementById('new-staff');
+    const name=inp?.value?.trim();
+    if(!name){ showToast('名前を入力してください',true); return; }
+    if(db.staff.includes(name)){ showToast('すでに登録済みです',true); return; }
+    db.staff.push(name); showToast(`${name}さんを追加しました`);
+    inp.value=''; render(); await saveData();
+  }
+
+  async function removeStaff(name){
+    if(!confirm(`${name}さんを削除しますか？`))return;
+    db.staff=db.staff.filter(n=>n!==name); render(); await saveData();
+  }
+
+  async function adjLeave(name,type,dir){
+    const id=(type==='paid'?'p_':'h_')+name.replace(/\s/g,'_');
+    const v=parseInt(document.getElementById(id)?.value||'1')||1;
+    if(!db.leave[name])db.leave[name]={paid:0,holiday:0,paidTotal:10,holidayTotal:12};
+    const key=type==='paid'?'paid':'holiday';
+    db.leave[name][key]=Math.max(0,(db.leave[name][key]||0)+dir*v);
+    showToast(`${name}さんの${type==='paid'?'有給':'公休'}を更新しました`);
+    render(); await saveData();
+  }
+
+  async function setTotal(name,field,inputId){
+    const v=parseInt(document.getElementById(inputId)?.value);
+    if(isNaN(v)||v<0){ showToast('正しい値を入力してください',true); return; }
+    if(!db.leave[name])db.leave[name]={paid:0,holiday:0,paidTotal:10,holidayTotal:12};
+    db.leave[name][field]=v; showToast('付与日数を更新しました');
+    render(); await saveData();
+  }
+
+  // ========== Excel出力 ==========
+  function exportExcel(){
+    const ym=state.filterMonth||ymStr();
+    const[y,m]=ym.split('-');
+    const names=state.filterName?[state.filterName]:db.staff;
+    const wb=XLSX.utils.book_new();
+    names.forEach(name=>{
+      const recs=db.records.filter(r=>r.name===name&&r.ts.startsWith(ym));
+      const byDay={};recs.forEach(r=>{const d=r.ts.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
+      const rows=[['日付','出勤','退勤','中抜け','戻り','労働時間(h)']];
+      const days=new Date(parseInt(y),parseInt(m),0).getDate();
+      for(let i=1;i<=days;i++){
+        const ds=`${ym}-${String(i).padStart(2,'0')}`;
+        const dr=(byDay[ds]||[]).sort((a,b)=>a.ts.localeCompare(b.ts));
+        const get=t=>dr.filter(r=>r.type===t).map(r=>r.ts.slice(11,16)).join('/');
+        rows.push([ds,get('出勤'),get('退勤'),get('中抜け'),get('戻り'),dr.length?calcDaily(dr):'']);
+      }
+      const mh=monthlyH(name,ym);
+      rows.push(['','','','','月合計',mh]);rows.push([]);
+      const lv=db.leave[name]||{paid:0,holiday:0,paidTotal:10,holidayTotal:12};
+      rows.push(['有給取得',lv.paid||0,'日','付与',lv.paidTotal||10,'日','残',(lv.paidTotal||10)-(lv.paid||0),'日']);
+      rows.push(['公休取得',lv.holiday||0,'日','付与',lv.holidayTotal||12,'日','残',(lv.holidayTotal||12)-(lv.holiday||0),'日']);
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:12},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12}];
+      XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));
+    });
+    XLSX.writeFile(wb,`${currentFarm}_勤怠_${ym}.xlsx`);
+    showToast('Excelを出力しました');
+  }
+
+  function selectName(n){
+    state.selName=n;
+    const inp=document.getElementById('name-inp'); if(inp)inp.value=n;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.dataset.name===n));
+  }
+
+  // ========== 打刻タブ ==========
+  function renderStamp(){
+    const types=[{t:'出勤',c:'sbtn-in',i:'🟢'},{t:'退勤',c:'sbtn-out',i:'🔴'},{t:'中抜け',c:'sbtn-brk',i:'🟡'},{t:'戻り',c:'sbtn-bck',i:'🔵'}];
+    const lt=state.selName?lastType(state.selName):null;
+    const stMap={'出勤':'st-in','退勤':'st-out','中抜け':'st-brk','戻り':'st-bck'};
+    return`<div class="card"><div class="card-title">⏰ 打刻</div>
+      <div class="name-label">スタッフ名</div>
+      <div class="name-wrap">
+        <input type="text" id="name-inp" placeholder="名前を入力" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          oninput="state.selName=this.value;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.dataset.name===this.value))">
+      </div>
+      <div class="chips">${db.staff.map(n=>`<span class="chip${n===state.selName?' sel':''}" data-name="${n}" onclick="selectName('${esc(n)}')">${esc(n)}</span>`).join('')}</div>
+      ${lt?`<div style="margin-bottom:10px"><span class="status-tag ${stMap[lt]}">${lt}</span> <span style="font-size:12px;color:#888">本日の最終打刻</span></div>`:''}
+      <div class="stamp-btns">
+        ${types.map(t=>`<button class="sbtn ${t.c}" onclick="doStamp('${t.t}')"><span class="s-icon">${t.i}</span>${t.t}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ========== 記録タブ ==========
+  function renderRecords(){
+    const months=getMonths();
+    let recs=db.records.slice();
+    if(state.filterName)recs=recs.filter(r=>r.name===state.filterName);
+    if(state.filterMonth)recs=recs.filter(r=>r.ts.startsWith(state.filterMonth));
+    const allNames=[...new Set(db.records.map(r=>r.name))];
+    const curYm=state.filterMonth||ymStr();
+    const stMap={'出勤':'st-in','退勤':'st-out','中抜け':'st-brk','戻り':'st-bck'};
+    let summary='';
+    if(state.filterName){
+      const nameRecs=db.records.filter(r=>r.name===state.filterName&&r.ts.startsWith(curYm));
+      const byDay={};nameRecs.forEach(r=>{const d=r.ts.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
+      const[y,m]=curYm.split('-');const daysInM=new Date(parseInt(y),parseInt(m),0).getDate();
+      let rows='';
+      for(let i=1;i<=daysInM;i++){
+        const ds=`${curYm}-${String(i).padStart(2,'0')}`;
+        const dr=(byDay[ds]||[]).sort((a,b)=>a.ts.localeCompare(b.ts));
+        if(!dr.length)continue;
+        const get=t=>dr.filter(r=>r.type===t).map(r=>r.ts.slice(11,16)).join('/');
+        rows+=`<tr><td>${ds}</td><td>${get('出勤')}</td><td>${get('退勤')}</td><td>${get('中抜け')}</td><td>${get('戻り')}</td><td style="font-weight:600;color:#27500A">${calcDaily(dr)}h</td></tr>`;
+      }
+      const mh=monthlyH(state.filterName,curYm);
+      summary=`<div class="card"><div class="card-title">📅 ${esc(state.filterName)}さん ${curYm} 日別集計</div>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-n">${mh}h</div><div class="stat-l">月間合計</div></div>
+        ${months.slice(1,4).map(ym=>`<div class="stat"><div class="stat-n">${monthlyH(state.filterName,ym)}h</div><div class="stat-l">${ym.replace('-','年')}月</div></div>`).join('')}
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>日付</th><th>出勤</th><th>退勤</th><th>中抜け</th><th>戻り</th><th>時間</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="6" style="text-align:center;padding:16px;color:#888">記録なし</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="5" style="text-align:right;padding:8px 10px;font-weight:600">月合計</td><td style="padding:8px 10px;font-weight:700;color:#27500A">${mh}h</td></tr></tfoot>
+      </table></div></div>`;
+    }
+    return`${summary}<div class="card"><div class="card-title">📋 打刻ログ</div>
+    <div class="frow">
+      <select onchange="state.filterName=this.value;render()">
+        <option value="">全員</option>${allNames.map(n=>`<option value="${n}"${n===state.filterName?' selected':''}>${esc(n)}</option>`).join('')}
+      </select>
+      <select onchange="state.filterMonth=this.value;render()">
+        <option value="">全期間</option>${months.map(m=>`<option value="${m}"${m===state.filterMonth?' selected':''}>${m}</option>`).join('')}
+      </select>
+      <button class="btn btn-g" onclick="exportExcel()" style="margin-left:auto">📥 Excel出力</button>
+    </div>
+    ${recs.length===0?`<div class="empty">記録がありません</div>`:`
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>日時</th><th>名前</th><th>種別</th><th></th></tr></thead>
+      <tbody>${recs.slice(0,100).map(r=>`<tr>
+        <td>${r.ts}</td><td>${esc(r.name)}</td>
+        <td><span class="status-tag ${stMap[r.type]||''}">${r.type}</span></td>
+        <td><button class="btn btn-s" style="padding:3px 8px;font-size:11px" onclick="delRecord(${r.id})">削除</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    ${recs.length>100?`<p style="font-size:11px;color:#888;margin-top:6px;text-align:center">最新100件表示（全${recs.length}件）</p>`:''}`}
+    </div>`;
+  }
+
+  // ========== 有給・公休タブ ==========
+  function renderLeave(){
+    return`<div class="card"><div class="card-title">🌿 有給・公休管理（年間）</div>
+    ${db.staff.length===0?`<div class="empty">スタッフを登録してください</div>`:`
+    <div class="leave-grid">${db.staff.map(name=>{
+      const lv=db.leave[name]||{paid:0,holiday:0,paidTotal:10,holidayTotal:12};
+      const pu=lv.paid||0,hu=lv.holiday||0,pt=lv.paidTotal||10,ht=lv.holidayTotal||12;
+      const sid=name.replace(/[\s　]/g,'_');
+      return`<div class="leave-card"><h3>👤 ${esc(name)}</h3>
+        <div class="lrow"><span>有給 取得</span><span class="lnum">${pu}日</span></div>
+        <div class="lrow"><span>有給 残</span><span class="lnum blue">${pt-pu}日 / ${pt}日</span></div>
+        <div class="lrow"><span>公休 取得</span><span class="lnum" style="color:#e65100">${hu}日</span></div>
+        <div class="lrow"><span>公休 残</span><span class="lnum blue">${ht-hu}日 / ${ht}日</span></div>
+        <div style="margin-top:10px;font-size:11px;color:#888;margin-bottom:4px">有給 ±</div>
+        <div class="adj-row"><input type="number" min="1" value="1" id="p_${sid}">
+        <button class="adj-btn adj-g" onclick="adjLeave('${esc(name)}','paid',1)">＋</button>
+        <button class="adj-btn adj-r" onclick="adjLeave('${esc(name)}','paid',-1)">－</button></div>
+        <div style="margin-top:7px;font-size:11px;color:#888;margin-bottom:4px">公休 ±</div>
+        <div class="adj-row"><input type="number" min="1" value="1" id="h_${sid}">
+        <button class="adj-btn adj-g" onclick="adjLeave('${esc(name)}','holiday',1)">＋</button>
+        <button class="adj-btn adj-r" onclick="adjLeave('${esc(name)}','holiday',-1)">－</button></div>
+        <div style="margin-top:9px;font-size:11px;color:#888;margin-bottom:4px">付与日数変更</div>
+        <div class="adj-row"><input type="number" min="0" value="${pt}" id="pt_${sid}">
+        <button class="adj-btn adj-g" onclick="setTotal('${esc(name)}','paidTotal','pt_${sid}')">有給設定</button></div>
+        <div class="adj-row" style="margin-top:5px"><input type="number" min="0" value="${ht}" id="ht_${sid}">
+        <button class="adj-btn adj-g" onclick="setTotal('${esc(name)}','holidayTotal','ht_${sid}')">公休設定</button></div>
+      </div>`;
+    }).join('')}</div>`}</div>`;
+  }
+
+  // ========== スタッフタブ ==========
+  function renderStaff(){
+    const stMap={'出勤':'st-in','退勤':'st-out','中抜け':'st-brk','戻り':'st-bck'};
+    return`<div class="card"><div class="card-title">👥 スタッフ管理</div>
+    <div class="add-staff-row">
+      <input type="text" id="new-staff" placeholder="スタッフ名を入力" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')addStaff()">
+      <button class="btn btn-g" onclick="addStaff()">＋ 追加</button>
+    </div>
+    ${db.staff.length===0?`<div class="empty">スタッフが登録されていません</div>`:`
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>名前</th><th>今月の労働時間</th><th>本日の状態</th><th></th></tr></thead>
+      <tbody>${db.staff.map(name=>{
+        const mh=monthlyH(name,ymStr()); const lt=lastType(name);
+        return`<tr><td style="font-weight:600">${esc(name)}</td><td>${mh}h</td>
+          <td>${lt?`<span class="status-tag ${stMap[lt]}">${lt}</span>`:'<span style="color:#aaa;font-size:12px">未打刻</span>'}</td>
+          <td><button class="btn btn-s" style="padding:3px 8px;font-size:11px;color:#b71c1c" onclick="removeStaff('${esc(name)}')">削除</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`}</div>`;
+  }
+
+  // ========== メインレンダー ==========
+  function render(){
+    const tabs=[{id:'stamp',label:'⏰ 打刻'},{id:'records',label:'📋 記録'},{id:'leave',label:'🌿 有給・公休'},{id:'staff',label:'👥 スタッフ'}];
+    document.getElementById('tabs-bar').innerHTML=tabs.map(t=>`<button class="tab${state.tab===t.id?' active':''}" onclick="state.tab='${t.id}';render()">${t.label}</button>`).join('');
+    const contentMap={stamp:renderStamp,records:renderRecords,leave:renderLeave,staff:renderStaff};
+    document.getElementById('main-content').innerHTML=(contentMap[state.tab]||renderStamp)();
+    if(state.tab==='stamp'){
+      setTimeout(()=>{ const ni=document.getElementById('name-inp'); if(ni&&state.selName)ni.value=state.selName; },50);
+    }
+  }
+
+  // 初期化
+  document.addEventListener('DOMContentLoaded',()=>{
+    loadFarmHistory();
+    document.getElementById('farm-input').addEventListener('keydown',e=>{ if(e.key==='Enter')startApp(); });
+  });
+</script>
+</body>
+</html>
